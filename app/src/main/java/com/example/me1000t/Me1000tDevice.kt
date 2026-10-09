@@ -101,6 +101,17 @@ class Me1000tDevice(
     }
 
     /**
+     * Read a map's 5 tuning parameters from cells (map, 0..4):
+     * [0]=Gain/Sensitivity, [1]=Low, [2]=Mid, [3]=High, [4]=Total.
+     * (Decoded from the desktop app's own edit handlers.) Returns null on any read failure.
+     */
+    fun readMapParams(map: Int): IntArray? {
+        val out = IntArray(5)
+        for (x2 in 0..4) out[x2] = readCell(map, x2) ?: return null
+        return out
+    }
+
+    /**
      * Write the engine warm-up delay: map cell (0,1), command "!0601<VV>".
      * The ONLY write this app performs. Bounded 0..255, verified by reading the cell back.
      * Returns true only if the box reports the new value; false on any error/mismatch.

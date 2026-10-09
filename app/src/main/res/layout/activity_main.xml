@@ -288,7 +288,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
-                    android:text="Read maps" />
+                    android:text="Read parameters" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnSnapshot"
@@ -334,7 +334,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="monospace"
-                        android:text="Tap Read maps to dump the map cell values."
+                        android:text="Switch to Map 1 or 2 to read its parameters."
                         android:textSize="12sp" />
                 </HorizontalScrollView>
             </com.google.android.material.card.MaterialCardView>

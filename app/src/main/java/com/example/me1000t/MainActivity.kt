@@ -19,6 +19,7 @@ import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.WindowManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -53,6 +54,8 @@ class MainActivity : AppCompatActivity() {
     private var failStreak = 0
     private var lastMap: Int? = null
     private var lastWarmup: Int? = null
+    private val paramCache = HashMap<Int, IntArray>()
+    private val PARAM_NAMES = arrayOf("Gain", "Low ", "Mid ", "High", "Totl")
     private var updatingFromDevice = false
     private var deviceLabel = "ME1000T"
     private var deviceSerial = "(sn n/a)"
@@ -201,6 +204,8 @@ class MainActivity : AppCompatActivity() {
                 io?.shutdownNow(); io = null
                 device?.close(); device = null
                 usbDevice = null
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                synchronized(paramCache) { paramCache.clear() }
                 setDot(R.color.dot_blue)
                 tvConnection.text = "✓ Safe to unplug"
                 tvSerial.text = buildString {
@@ -290,9 +295,15 @@ class MainActivity : AppCompatActivity() {
         tvConnection.text = "Connected — $deviceLabel"
         tvSerial.text = "SN $deviceSerial"
         setDot(R.color.dot_green)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)  // stay awake while connected
         log("Connected VID=0x${Integer.toHexString(dev.vendorId)} PID=0x${Integer.toHexString(dev.productId)}")
         startPolling()
         fetchAdvanced()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (device == null) connect()   // auto-reconnect when returning to the app
     }
 
     private fun startPolling() {
@@ -310,12 +321,14 @@ class MainActivity : AppCompatActivity() {
         val d = device
         val map = if (d != null) d.activeMapOf(r) else null
         if (map != null && r != null) {
+            val changed = (map != lastMap)
             failStreak = 0; lastMap = map
             setDot(R.color.dot_green)
             tvActiveMap.text = map.toString()
             tvMapPower.text = mapPower(map)
             updateToggle(map)
             tvInterpreted.text = interpretStatus(r)
+            if (changed) readParamsFor(map)
         } else {
             failStreak++
             if (failStreak >= 3) {
@@ -357,7 +370,53 @@ class MainActivity : AppCompatActivity() {
                 if (ok) { lastMap = n; tvActiveMap.text = n.toString(); tvMapPower.text = mapPower(n) }
                 log("Switch -> Map $n : ${if (ok) "OK" else "FAILED (retry)"}")
             }
+            if (ok) readParamsFor(n)
         }
+    }
+
+    /** Read a map's 5 tuning parameters and render the labeled view + comparison. */
+    private fun readParamsFor(map: Int) {
+        val ex = io ?: return
+        ex.execute {
+            val d = device ?: return@execute
+            val p = if (map == 0) null else d.readMapParams(map)
+            if (p != null) synchronized(paramCache) { paramCache[map] = p }
+            ui.post { renderParams(map) }
+        }
+    }
+
+    private fun bar(v: Int, max: Int, width: Int = 10): String {
+        if (max <= 0) return ""
+        val n = (v.toDouble() / max * width).toInt().coerceIn(0, width)
+        return "█".repeat(n)
+    }
+
+    private fun renderParams(active: Int) {
+        val sb = StringBuilder()
+        if (active == 0) {
+            sb.append("Map 0 — Stock (no adjustable parameters)\n\n")
+        } else {
+            val p = synchronized(paramCache) { paramCache[active] }
+            if (p == null) {
+                sb.append("Map $active — reading parameters…\n\n")
+            } else {
+                val mx = (p.maxOrNull() ?: 1).coerceAtLeast(1)
+                sb.append("Map $active parameters\n")
+                for (i in 0..4) sb.append(String.format("  %s  %3d  %s\n", PARAM_NAMES[i], p[i], bar(p[i], mx)))
+                sb.append('\n')
+            }
+        }
+        // comparison of whatever maps have been read so far
+        val seen = synchronized(paramCache) { paramCache.toSortedMap() }
+        if (seen.isNotEmpty()) {
+            val gmax = seen.values.maxOf { it.getOrElse(0) { 0 } }.coerceAtLeast(1)
+            sb.append("Gain by map (higher = more aggressive)\n")
+            for ((m, pv) in seen) sb.append(String.format("  Map %d  %3d  %s\n", m, pv[0], bar(pv[0], gmax)))
+            sb.append("\nSwitch maps to read each one.")
+        } else {
+            sb.append("Switch to Map 1 or 2 to read its parameters.")
+        }
+        tvMapGrid.text = sb.toString()
     }
 
     /**
@@ -431,12 +490,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun readMap() {
-        val ex = io ?: run { log("Not connected."); return }
-        ui.post { tvMapGrid.text = "Reading…" }
-        ex.execute {
-            val d = device ?: return@execute
-            ui.post { tvMapGrid.text = buildGrid(d) }
-        }
+        val m = lastMap ?: run { log("Not connected."); return }
+        readParamsFor(m)
     }
 
     private fun buildGrid(d: Me1000tDevice): String {
@@ -508,6 +563,8 @@ class MainActivity : AppCompatActivity() {
         io?.shutdownNow(); io = null
         device?.close(); device = null
         usbDevice = null
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        synchronized(paramCache) { paramCache.clear() }
         ui.post {
             tvConnection.text = why
             tvSerial.text = ""
