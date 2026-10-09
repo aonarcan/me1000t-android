@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ME1000T Controller</string>
+
+    <!-- Vehicle (edit these if the box moves to another car) -->
+    <string name="vehicle_name">Alfa Romeo Giulietta</string>
+    <string name="vehicle_spec">2016 · 1.4T · 170 hp stock</string>
+
+    <!-- Per-map power, as stated for this box/car -->
+    <string name="map0_desc">170 hp · Stock</string>
+    <string name="map1_desc">~181 hp · Intermediate</string>
+    <string name="map2_desc">193 hp · Performance</string>
+</resources>

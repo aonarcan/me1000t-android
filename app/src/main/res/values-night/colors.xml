@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Graphite (dark) -->
+    <color name="graphite_primary">#A9C9EC</color>
+    <color name="graphite_on_primary">#0E314F</color>
+    <color name="graphite_primary_container">#2A4864</color>
+    <color name="graphite_on_primary_container">#D3E4F6</color>
+    <color name="graphite_secondary">#BAC8D6</color>
+
+    <!-- Racing Red (dark) -->
+    <color name="red_primary">#FFB4AB</color>
+    <color name="red_on_primary">#690005</color>
+    <color name="red_primary_container">#8C1D18</color>
+    <color name="red_on_primary_container">#FFDAD6</color>
+    <color name="red_secondary">#E7BDB8</color>
+
+    <!-- Marelli Blue (dark) -->
+    <color name="blue_primary">#A9C7FF</color>
+    <color name="blue_on_primary">#003063</color>
+    <color name="blue_primary_container">#00468C</color>
+    <color name="blue_on_primary_container">#D6E3FF</color>
+    <color name="blue_secondary">#BEC6DC</color>
+</resources>

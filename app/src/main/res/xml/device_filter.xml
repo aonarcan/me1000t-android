@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- VID 0x26D6 = 9942, PID 0x0E19 = 3609 -->
+    <usb-device vendor-id="9942" product-id="3609" />
+</resources>

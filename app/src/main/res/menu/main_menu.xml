@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/menu_appearance"
+        android:title="Appearance"
+        app:showAsAction="never">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item android:id="@+id/theme_graphite" android:title="Graphite" />
+                <item android:id="@+id/theme_red" android:title="Racing Red" />
+                <item android:id="@+id/theme_blue" android:title="Marelli Blue" />
+            </group>
+        </menu>
+    </item>
+</menu>
