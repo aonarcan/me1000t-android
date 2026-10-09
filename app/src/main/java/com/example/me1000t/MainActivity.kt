@@ -18,6 +18,7 @@ import android.os.Looper
 import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -41,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private val ACTION_USB_PERMISSION = "com.example.me1000t.USB_PERMISSION"
     private val PREFS = "settings"
     private val KEY_THEME = "theme"   // 0 graphite, 1 red, 2 blue
+    private val KEY_RAW = "show_raw"  // developer: show ?04/?05 raw lines
 
     private lateinit var usbManager: UsbManager
     private var device: Me1000tDevice? = null
@@ -122,6 +124,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnReadMap).setOnClickListener { readMap() }
         findViewById<MaterialButton>(R.id.btnSnapshot).setOnClickListener { saveSnapshot() }
         findViewById<MaterialButton>(R.id.btnEditWarmup).setOnClickListener { editWarmup() }
+        findViewById<MaterialButton>(R.id.btnSafeDisconnect).setOnClickListener { safeDisconnect() }
 
         mapToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked || updatingFromDevice) return@addOnButtonCheckedListener
@@ -141,7 +144,13 @@ class MainActivity : AppCompatActivity() {
         })
 
         setDot(R.color.dot_grey)
+        applyRawVisibility()
         connect()
+    }
+
+    private fun applyRawVisibility() {
+        val show = getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_RAW, false)
+        tvAdvancedRaw.visibility = if (show) View.VISIBLE else View.GONE
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -149,19 +158,60 @@ class MainActivity : AppCompatActivity() {
         val idx = getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_THEME, 0)
         val id = when (idx) { 1 -> R.id.theme_red; 2 -> R.id.theme_blue; else -> R.id.theme_graphite }
         menu.findItem(id)?.isChecked = true
+        menu.findItem(R.id.menu_raw)?.isChecked =
+            getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_RAW, false)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (item.itemId == R.id.menu_raw) {
+            val show = !item.isChecked
+            item.isChecked = show
+            prefs.edit().putBoolean(KEY_RAW, show).apply()
+            applyRawVisibility()
+            return true
+        }
         val idx = when (item.itemId) {
             R.id.theme_graphite -> 0
             R.id.theme_red -> 1
             R.id.theme_blue -> 2
             else -> return super.onOptionsItemSelected(item)
         }
-        getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY_THEME, idx).apply()
+        prefs.edit().putInt(KEY_THEME, idx).apply()
         recreate()
         return true
+    }
+
+    /** Verify box state, close the connection cleanly, and tell the user it's safe to unplug. */
+    private fun safeDisconnect() {
+        val ex = io
+        if (ex == null || device == null) {
+            setDot(R.color.dot_blue)
+            tvConnection.text = "Safe to unplug"
+            tvSerial.text = "Not connected."
+            return
+        }
+        log("Finishing — confirming box state…")
+        ex.execute {
+            val d = device
+            val map = d?.let { it.activeMapOf(it.readStatus()) }
+            val warm = d?.let { parseWarmup(it.sendCommand("?05")) }
+            ui.post {
+                io?.shutdownNow(); io = null
+                device?.close(); device = null
+                usbDevice = null
+                setDot(R.color.dot_blue)
+                tvConnection.text = "✓ Safe to unplug"
+                tvSerial.text = buildString {
+                    append("Saved on the box")
+                    if (map != null) append(" · Map $map")
+                    if (warm != null) append(" · warm-up $warm s")
+                }
+                tvInterpreted.text = ""
+                log("Disconnected cleanly — active map ${map ?: "?"}, warm-up ${warm?.let { "$it s" } ?: "?"}. Safe to unplug now.")
+            }
+        }
     }
 
     private fun registerExported(r: BroadcastReceiver, f: IntentFilter) {
@@ -376,6 +426,7 @@ class MainActivity : AppCompatActivity() {
                 if (ok) { lastWarmup = v; tvWarmup.text = "$v s" }
                 log("Warm-up -> $v s : ${if (ok) "OK" else "FAILED"}  (box reads ${back ?: "?"})")
             }
+            fetchAdvanced()   // re-read ?04/?05 so values stay fresh
         }
     }
 

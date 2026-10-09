@@ -25,5 +25,6 @@
     <color name="dot_green">#2E7D32</color>
     <color name="dot_amber">#F9A825</color>
     <color name="dot_red">#C62828</color>
+    <color name="dot_blue">#1565C0</color>
     <color name="ic_launcher_background">#1565C0</color>
 </resources>
