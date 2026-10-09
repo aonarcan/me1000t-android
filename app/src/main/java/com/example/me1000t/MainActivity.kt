@@ -15,9 +15,13 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -46,6 +50,7 @@ class MainActivity : AppCompatActivity() {
 
     private var failStreak = 0
     private var lastMap: Int? = null
+    private var lastWarmup: Int? = null
     private var updatingFromDevice = false
     private var deviceLabel = "ME1000T"
     private var deviceSerial = "(sn n/a)"
@@ -116,6 +121,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnConnect).setOnClickListener { connect() }
         findViewById<MaterialButton>(R.id.btnReadMap).setOnClickListener { readMap() }
         findViewById<MaterialButton>(R.id.btnSnapshot).setOnClickListener { saveSnapshot() }
+        findViewById<MaterialButton>(R.id.btnEditWarmup).setOnClickListener { editWarmup() }
 
         mapToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked || updatingFromDevice) return@addOnButtonCheckedListener
@@ -329,8 +335,46 @@ class MainActivity : AppCompatActivity() {
             val r05 = d.sendCommand("?05")
             val warm = parseWarmup(r05)
             ui.post {
+                lastWarmup = warm
                 tvWarmup.text = if (warm != null) "$warm s" else "Unknown"
                 tvAdvancedRaw.text = "?04 = $r04\n?05 = ${r05 ?: "(no reply)"}"
+            }
+        }
+    }
+
+    /** The app's one write: a bounded, confirmed, verified warm-up change. */
+    private fun editWarmup() {
+        if (device == null) { log("Not connected."); return }
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText((lastWarmup ?: 40).toString())
+            setSelection(text.length)
+        }
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val box = FrameLayout(this).apply { setPadding(pad, pad / 2, pad, 0); addView(input) }
+        AlertDialog.Builder(this)
+            .setTitle("Warm-up delay (seconds)")
+            .setMessage("Enter 0–255. This writes the setting to the box.")
+            .setView(box)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Write") { _, _ ->
+                val v = input.text.toString().toIntOrNull()
+                if (v == null || v < 0 || v > 255) { log("Invalid value (must be 0–255)."); return@setPositiveButton }
+                writeWarmup(v)
+            }
+            .show()
+    }
+
+    private fun writeWarmup(v: Int) {
+        val ex = io ?: run { log("Not connected."); return }
+        log("Writing warm-up = $v s…")
+        ex.execute {
+            val d = device ?: return@execute
+            val ok = d.setWarmup(v)
+            val back = d.readCell(0, 1)
+            ui.post {
+                if (ok) { lastWarmup = v; tvWarmup.text = "$v s" }
+                log("Warm-up -> $v s : ${if (ok) "OK" else "FAILED"}  (box reads ${back ?: "?"})")
             }
         }
     }

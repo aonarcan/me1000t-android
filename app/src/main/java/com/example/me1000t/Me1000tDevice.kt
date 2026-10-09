@@ -100,6 +100,19 @@ class Me1000tDevice(
         return try { r.substring(4, 6).toInt(16) } catch (e: Exception) { null }
     }
 
+    /**
+     * Write the engine warm-up delay: map cell (0,1), command "!0601<VV>".
+     * The ONLY write this app performs. Bounded 0..255, verified by reading the cell back.
+     * Returns true only if the box reports the new value; false on any error/mismatch.
+     */
+    fun setWarmup(seconds: Int): Boolean {
+        if (seconds < 0 || seconds > 255) return false
+        val cmd = "!0601" + String.format("%02X", seconds)
+        sendCommand(cmd) ?: return false
+        // verify by reading cell (0,1) back
+        return readCell(0, 1) == seconds
+    }
+
     fun close() {
         try { connection.releaseInterface(intf) } catch (_: Exception) {}
         try { connection.close() } catch (_: Exception) {}

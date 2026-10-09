@@ -245,3 +245,29 @@ map-data summary, not live status.
 
 Status `?03` tail observed: `21000` (map 2) and `11000` (map 1). The 4th char was
 `0` throughout with the box unlocked, consistent with it being the lock flag.
+
+---
+
+## 10. WRITE: warm-up delay — verified on the wire (2026-10-09)
+
+The engine warm-up delay is **map cell (0,1)**. It is changed with a single cell write,
+confirmed by capturing a real change from the desktop app:
+
+```
+!0601<VV>   ->  box echoes  0601<VV>
+```
+`VV` = delay in seconds, 2 hex digits. Range 0–255 (desktop NumericUpDown max = 255).
+
+Captured sequence (50→45 by down-arrow, typed to 60, 60→65 by up-arrow):
+```
+!060131→49  !060130→48  !06012F→47  !06012E→46  !06012D→45
+!06013C→60  !06013D→61  !06013E→62  !06013F→63  !060140→64  !060141→65
+```
+
+Key facts for a safe implementation:
+- **No commit step.** No `!02CA` / save follows the write — the box applies and persists
+  the cell immediately (value survives reconnect).
+- **Direct write.** Typing a value sends ONE write to the target (not step-by-step).
+- **Self-verifying.** The box echoes `0601<VV>`; also re-readable via `?0601`.
+- This is the ONLY write the phone app performs. It never touches map-data cells,
+  the `!04/!10/!05/!02CA` map-save path, or the `!0F` lock.
